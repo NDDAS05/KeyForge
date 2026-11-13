@@ -1,0 +1,6 @@
+{
+  "name": "KeyForge",
+  "description": "Custom programming keyboard with one-tap symbol row, auto-closing bracket cursor placement, left/right navigation, haptic feedback, and syntax-specific layout switching.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

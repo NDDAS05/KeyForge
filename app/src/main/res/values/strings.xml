@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">KeyForge</string>
+    <string name="ime_service_label">KeyForge Code Keyboard</string>
+    <string name="ime_subtype_en_us">English (US) Programming</string>
+    <string name="cd_cursor_left">Move cursor left</string>
+    <string name="cd_cursor_right">Move cursor right</string>
+    <string name="cd_backspace">Backspace</string>
+    <string name="cd_shift">Shift</string>
+    <string name="cd_enter">Enter</string>
+    <string name="cd_space">Space</string>
+    <string name="cd_tab">Tab indent</string>
+    <string name="cd_settings">Keyboard settings</string>
+    <string name="cd_syntax_toggle">Switch syntax character layout</string>
+    <string name="cd_haptic_toggle">Toggle haptic feedback</string>
+    <string name="cd_autoclose_toggle">Toggle auto-closing brackets</string>
+</resources>
