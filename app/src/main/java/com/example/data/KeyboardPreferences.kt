@@ -17,6 +17,7 @@ enum class KeyHighlightMode(val id: String, val label: String) {
     OFF("off", "Off"),
     STATIC("static", "Static"),
     DYNAMIC("dynamic", "Dynamic"),
+    RANDOM_RGB("random_rgb", "Random RGB"),
     GRADIENT("gradient", "Gradient");
 
     companion object {
@@ -49,6 +50,11 @@ enum class RgbGradientPreset(
         id = "neon_pulse",
         label = "Neon Pulse",
         colorsArgb = listOf(0xFF84CC16, 0xFF06B6D4, 0xFFEC4899)
+    ),
+    RANDOM(
+        id = "random",
+        label = "Random",
+        colorsArgb = listOf(0xFF22D3EE, 0xFFF59E0B, 0xFFEC4899, 0xFF10B981)
     );
 
     companion object {

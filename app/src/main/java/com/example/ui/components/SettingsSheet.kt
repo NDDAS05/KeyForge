@@ -254,8 +254,13 @@ fun KeyboardSettingsSheet(
                                 text = when (preferences.highlightMode) {
                                     KeyHighlightMode.OFF -> "Default surface press"
                                     KeyHighlightMode.STATIC -> "Fixed RGB color"
-                                    KeyHighlightMode.DYNAMIC -> "New RGB color on every press"
-                                    KeyHighlightMode.GRADIENT -> "Multi-stop RGB gradient"
+                                    KeyHighlightMode.DYNAMIC -> "Cycling RGB hue on every press"
+                                    KeyHighlightMode.RANDOM_RGB -> "Vibrant random RGB color on every press"
+                                    KeyHighlightMode.GRADIENT -> if (preferences.gradientPreset == RgbGradientPreset.RANDOM) {
+                                        "Random multi-stop gradient on every press"
+                                    } else {
+                                        "Multi-stop RGB gradient"
+                                    }
                                 },
                                 style = MaterialTheme.typography.titleSmall
                             )
@@ -371,11 +376,21 @@ fun KeyboardSettingsSheet(
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            text = preset.label,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                                        )
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = preset.label,
+                                                style = MaterialTheme.typography.bodyMedium,
+                                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                            )
+                                            if (preset == RgbGradientPreset.RANDOM) {
+                                                Text(
+                                                    text = "Fresh multi-stop colors on every tap",
+                                                    style = MaterialTheme.typography.labelSmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                        Spacer(Modifier.width(12.dp))
                                         Box(
                                             modifier = Modifier
                                                 .width(96.dp)

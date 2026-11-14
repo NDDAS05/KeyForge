@@ -81,6 +81,7 @@ import com.example.data.ClipboardItem
 import com.example.data.EnterKeyBehavior
 import com.example.data.KeyHighlightMode
 import com.example.data.KeyboardPreferences
+import com.example.data.RgbGradientPreset
 import com.example.haptics.HapticEventType
 import com.example.haptics.KeyboardHaptics
 import com.example.model.SyntaxLayout
@@ -1092,6 +1093,9 @@ fun KeyCapButton(
     val currentOnLongPress by rememberUpdatedState(onLongPress)
     var isPressed by remember { mutableStateOf(false) }
     var activeDynamicColor by remember { mutableStateOf(rgbController.currentDynamicColor()) }
+    var activeGradientColors by remember(preferences.gradientPreset) {
+        mutableStateOf(preferences.gradientPreset.colorsArgb.map { Color(it) })
+    }
     val glowProgress = remember { Animatable(0f) }
 
     val scale by animateFloatAsState(
@@ -1106,7 +1110,8 @@ fun KeyCapButton(
         defaultPressedBg = MaterialTheme.colorScheme.primaryContainer,
         defaultPressedFg = MaterialTheme.colorScheme.onPrimaryContainer,
         defaultBorder = MaterialTheme.colorScheme.primary,
-        intensity = glowProgress.value
+        intensity = glowProgress.value,
+        activeGradientColors = activeGradientColors
     )
 
     val shape = RoundedCornerShape(cornerRadius)
@@ -1132,12 +1137,23 @@ fun KeyCapButton(
                 },
                 shape = shape
             )
-            .pointerInput(preferences.highlightMode, longPressDelayMs) {
+            .pointerInput(preferences.highlightMode, preferences.gradientPreset, longPressDelayMs) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     isPressed = true
-                    if (preferences.highlightMode == KeyHighlightMode.DYNAMIC) {
-                        activeDynamicColor = rgbController.nextDynamicColor()
+                    when (preferences.highlightMode) {
+                        KeyHighlightMode.DYNAMIC -> {
+                            activeDynamicColor = rgbController.nextDynamicColor()
+                        }
+                        KeyHighlightMode.RANDOM_RGB -> {
+                            activeDynamicColor = rgbController.nextRandomVibrantColor()
+                        }
+                        KeyHighlightMode.GRADIENT -> {
+                            if (preferences.gradientPreset == RgbGradientPreset.RANDOM) {
+                                activeGradientColors = rgbController.nextRandomGradientColors()
+                            }
+                        }
+                        else -> Unit
                     }
                     scope.launch { glowProgress.snapTo(1f) }
                     var longPressed = false
@@ -1221,6 +1237,9 @@ private fun ActionIconKeyCap(
     val currentOnLongPress by rememberUpdatedState(onLongPress)
     var isPressed by remember { mutableStateOf(false) }
     var activeDynamicColor by remember { mutableStateOf(rgbController.currentDynamicColor()) }
+    var activeGradientColors by remember(preferences.gradientPreset) {
+        mutableStateOf(preferences.gradientPreset.colorsArgb.map { Color(it) })
+    }
     val glowProgress = remember { Animatable(0f) }
 
     val scale by animateFloatAsState(
@@ -1235,7 +1254,8 @@ private fun ActionIconKeyCap(
         defaultPressedBg = MaterialTheme.colorScheme.primaryContainer,
         defaultPressedFg = MaterialTheme.colorScheme.onPrimaryContainer,
         defaultBorder = MaterialTheme.colorScheme.primary,
-        intensity = glowProgress.value
+        intensity = glowProgress.value,
+        activeGradientColors = activeGradientColors
     )
     val shape = RoundedCornerShape(cornerRadius)
 
@@ -1261,12 +1281,23 @@ private fun ActionIconKeyCap(
                 shape = shape
             )
             .semantics { this.contentDescription = contentDescription }
-            .pointerInput(preferences.highlightMode) {
+            .pointerInput(preferences.highlightMode, preferences.gradientPreset) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     isPressed = true
-                    if (preferences.highlightMode == KeyHighlightMode.DYNAMIC) {
-                        activeDynamicColor = rgbController.nextDynamicColor()
+                    when (preferences.highlightMode) {
+                        KeyHighlightMode.DYNAMIC -> {
+                            activeDynamicColor = rgbController.nextDynamicColor()
+                        }
+                        KeyHighlightMode.RANDOM_RGB -> {
+                            activeDynamicColor = rgbController.nextRandomVibrantColor()
+                        }
+                        KeyHighlightMode.GRADIENT -> {
+                            if (preferences.gradientPreset == RgbGradientPreset.RANDOM) {
+                                activeGradientColors = rgbController.nextRandomGradientColors()
+                            }
+                        }
+                        else -> Unit
                     }
                     scope.launch { glowProgress.snapTo(1f) }
                     var longPressed = false
@@ -1328,6 +1359,9 @@ private fun RepeatableIconKeyCap(
     val currentOnTrigger by rememberUpdatedState(onTrigger)
     var isPressed by remember { mutableStateOf(false) }
     var activeDynamicColor by remember { mutableStateOf(rgbController.currentDynamicColor()) }
+    var activeGradientColors by remember(preferences.gradientPreset) {
+        mutableStateOf(preferences.gradientPreset.colorsArgb.map { Color(it) })
+    }
     val glowProgress = remember { Animatable(0f) }
 
     val scale by animateFloatAsState(
@@ -1342,7 +1376,8 @@ private fun RepeatableIconKeyCap(
         defaultPressedBg = MaterialTheme.colorScheme.primaryContainer,
         defaultPressedFg = MaterialTheme.colorScheme.onPrimaryContainer,
         defaultBorder = MaterialTheme.colorScheme.primary,
-        intensity = glowProgress.value
+        intensity = glowProgress.value,
+        activeGradientColors = activeGradientColors
     )
     val shape = RoundedCornerShape(cornerRadius)
 
@@ -1368,20 +1403,42 @@ private fun RepeatableIconKeyCap(
                 shape = shape
             )
             .semantics { this.contentDescription = contentDescription }
-            .pointerInput(preferences.highlightMode) {
+            .pointerInput(preferences.highlightMode, preferences.gradientPreset) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     isPressed = true
-                    if (preferences.highlightMode == KeyHighlightMode.DYNAMIC) {
-                        activeDynamicColor = rgbController.nextDynamicColor()
+                    when (preferences.highlightMode) {
+                        KeyHighlightMode.DYNAMIC -> {
+                            activeDynamicColor = rgbController.nextDynamicColor()
+                        }
+                        KeyHighlightMode.RANDOM_RGB -> {
+                            activeDynamicColor = rgbController.nextRandomVibrantColor()
+                        }
+                        KeyHighlightMode.GRADIENT -> {
+                            if (preferences.gradientPreset == RgbGradientPreset.RANDOM) {
+                                activeGradientColors = rgbController.nextRandomGradientColors()
+                            }
+                        }
+                        else -> Unit
                     }
                     scope.launch { glowProgress.snapTo(1f) }
                     currentOnTrigger()
                     val repeatJob = scope.launch {
                         delay(300L)
                         while (true) {
-                            if (preferences.highlightMode == KeyHighlightMode.DYNAMIC) {
-                                activeDynamicColor = rgbController.nextDynamicColor()
+                            when (preferences.highlightMode) {
+                                KeyHighlightMode.DYNAMIC -> {
+                                    activeDynamicColor = rgbController.nextDynamicColor()
+                                }
+                                KeyHighlightMode.RANDOM_RGB -> {
+                                    activeDynamicColor = rgbController.nextRandomVibrantColor()
+                                }
+                                KeyHighlightMode.GRADIENT -> {
+                                    if (preferences.gradientPreset == RgbGradientPreset.RANDOM) {
+                                        activeGradientColors = rgbController.nextRandomGradientColors()
+                                    }
+                                }
+                                else -> Unit
                             }
                             currentOnTrigger()
                             delay(65L)

@@ -11,6 +11,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import com.example.data.KeyHighlightMode
 import com.example.data.KeyboardPreferences
+import com.example.data.RgbGradientPreset
+import kotlin.random.Random
 
 @Stable
 class RgbHighlightController(initialHue: Float = 190f) {
@@ -19,6 +21,24 @@ class RgbHighlightController(initialHue: Float = 190f) {
     fun nextDynamicColor(): Color {
         currentHue = (currentHue + 137.508f) % 360f
         return Color.hsv(currentHue, 0.88f, 1.0f)
+    }
+
+    fun nextRandomVibrantColor(random: Random = Random.Default): Color {
+        val hue = random.nextFloat() * 360f
+        val saturation = 0.68f + random.nextFloat() * 0.32f
+        val value = 0.86f + random.nextFloat() * 0.14f
+        return Color.hsv(hue, saturation, value)
+    }
+
+    fun nextRandomGradientColors(random: Random = Random.Default): List<Color> {
+        val baseHue = random.nextFloat() * 360f
+        val secondHue = (baseHue + 65f + random.nextFloat() * 90f) % 360f
+        val thirdHue = (baseHue + 160f + random.nextFloat() * 110f) % 360f
+        return listOf(baseHue, secondHue, thirdHue).map { hue ->
+            val saturation = 0.70f + random.nextFloat() * 0.30f
+            val value = 0.86f + random.nextFloat() * 0.14f
+            Color.hsv(hue, saturation, value)
+        }
     }
 
     fun currentDynamicColor(): Color = Color.hsv(currentHue, 0.88f, 1.0f)
@@ -41,7 +61,8 @@ fun resolveRgbPressAppearance(
     defaultPressedBg: Color,
     defaultPressedFg: Color,
     defaultBorder: Color,
-    intensity: Float
+    intensity: Float,
+    activeGradientColors: List<Color> = preferences.gradientPreset.colorsArgb.map { Color(it) }
 ): RgbPressAppearance {
     val clamped = intensity.coerceIn(0f, 1f)
     return when (preferences.highlightMode) {
@@ -58,7 +79,7 @@ fun resolveRgbPressAppearance(
                 contentColor = rgb
             )
         }
-        KeyHighlightMode.DYNAMIC -> {
+        KeyHighlightMode.DYNAMIC, KeyHighlightMode.RANDOM_RGB -> {
             RgbPressAppearance(
                 fillBrush = SolidColor(activeDynamicColor.copy(alpha = 0.34f * clamped)),
                 borderBrush = SolidColor(activeDynamicColor.copy(alpha = 0.95f * clamped)),
@@ -66,7 +87,14 @@ fun resolveRgbPressAppearance(
             )
         }
         KeyHighlightMode.GRADIENT -> {
-            val stops = preferences.gradientPreset.colorsArgb.map { Color(it) }
+            val stops = if (
+                preferences.gradientPreset == RgbGradientPreset.RANDOM &&
+                activeGradientColors.size >= 2
+            ) {
+                activeGradientColors
+            } else {
+                preferences.gradientPreset.colorsArgb.map { Color(it) }
+            }
             val fillStops = stops.map { it.copy(alpha = 0.36f * clamped) }
             val borderStops = stops.map { it.copy(alpha = 0.95f * clamped) }
             RgbPressAppearance(
