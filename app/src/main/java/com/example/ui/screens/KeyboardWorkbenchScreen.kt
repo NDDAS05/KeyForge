@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +62,7 @@ fun KeyboardWorkbenchScreen(
     val haptics = remember(context) { KeyboardHaptics(context) }
 
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
+    val clipboardItems by viewModel.clipboardItems.collectAsStateWithLifecycle()
     val editorValue by viewModel.editorValue.collectAsStateWithLifecycle()
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val feedbackBadge by viewModel.pairFeedbackBadge.collectAsStateWithLifecycle()
@@ -96,7 +95,6 @@ fun KeyboardWorkbenchScreen(
                     .fillMaxSize()
                     .statusBarsPadding()
             ) {
-                // Compact Top Brand & Status Header
                 WorkbenchTopBar(
                     isImeEnabled = imeStatus.isEnabledInSystem,
                     isImeDefault = imeStatus.isCurrentDefaultIme,
@@ -112,7 +110,6 @@ fun KeyboardWorkbenchScreen(
                 )
 
                 if (isExpandedWide) {
-                    // Wide / Tablet / Landscape layout: Editor + Keyboard balanced with comfortable max width
                     Row(
                         modifier = Modifier
                             .weight(1f)
@@ -129,6 +126,7 @@ fun KeyboardWorkbenchScreen(
                             canUndo = canUndo,
                             onUndo = viewModel::undo,
                             onResetSnippet = { viewModel.loadStarterSnippet() },
+                            onCopyToHistory = { text -> viewModel.recordClipboardCopy(text) },
                             onClear = viewModel::clearEditor,
                             feedbackBadge = feedbackBadge,
                             modifier = Modifier
@@ -144,6 +142,7 @@ fun KeyboardWorkbenchScreen(
                         ) {
                             CodeKeyboard(
                                 preferences = preferences,
+                                clipboardItems = clipboardItems,
                                 haptics = haptics,
                                 actions = viewModel,
                                 modifier = Modifier
@@ -153,7 +152,6 @@ fun KeyboardWorkbenchScreen(
                         }
                     }
                 } else {
-                    // Portrait / Compact layout: Live Editor above anchored Mechanical Programming Keyboard
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -169,6 +167,7 @@ fun KeyboardWorkbenchScreen(
                             canUndo = canUndo,
                             onUndo = viewModel::undo,
                             onResetSnippet = { viewModel.loadStarterSnippet() },
+                            onCopyToHistory = { text -> viewModel.recordClipboardCopy(text) },
                             onClear = viewModel::clearEditor,
                             feedbackBadge = feedbackBadge,
                             modifier = Modifier
@@ -179,6 +178,7 @@ fun KeyboardWorkbenchScreen(
 
                     CodeKeyboard(
                         preferences = preferences,
+                        clipboardItems = clipboardItems,
                         haptics = haptics,
                         actions = viewModel,
                         modifier = Modifier
@@ -203,6 +203,10 @@ fun KeyboardWorkbenchScreen(
             onToggleSmartIndent = viewModel::setSmartIndentOnEnter,
             onToggleHaptics = viewModel::setHapticEnabled,
             onSelectHapticStrength = viewModel::setHapticStrength,
+            onSelectHighlightMode = viewModel::setHighlightMode,
+            onSelectStaticColor = viewModel::setStaticHighlightColor,
+            onSelectGradientPreset = viewModel::setGradientPreset,
+            onSelectEnterBehavior = viewModel::setEnterKeyBehavior,
             onToggleSyntaxStrip = viewModel::setShowSyntaxStrip,
             onToggleKeyHints = viewModel::setShowKeyHints,
             onToggleDarkMode = viewModel::setDarkMode

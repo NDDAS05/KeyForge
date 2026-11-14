@@ -66,6 +66,7 @@ fun CodeSandboxEditor(
     canUndo: Boolean,
     onUndo: () -> Unit,
     onResetSnippet: () -> Unit,
+    onCopyToHistory: (String) -> Unit,
     onClear: () -> Unit,
     feedbackBadge: String?,
     modifier: Modifier = Modifier
@@ -201,7 +202,19 @@ fun CodeSandboxEditor(
                         )
                     }
                     IconButton(
-                        onClick = { clipboardManager.setText(AnnotatedString(value.text)) },
+                        onClick = {
+                            val selectedOrAll = if (!value.selection.collapsed) {
+                                val min = minOf(value.selection.start, value.selection.end)
+                                val max = maxOf(value.selection.start, value.selection.end)
+                                value.text.substring(min, max)
+                            } else {
+                                value.text
+                            }
+                            if (selectedOrAll.isNotBlank()) {
+                                clipboardManager.setText(AnnotatedString(selectedOrAll))
+                                onCopyToHistory(selectedOrAll)
+                            }
+                        },
                         modifier = Modifier
                             .size(36.dp)
                             .testTag("editor_copy_button")

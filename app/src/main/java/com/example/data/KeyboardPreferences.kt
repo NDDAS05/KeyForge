@@ -13,6 +13,79 @@ enum class HapticStrength(val id: String, val label: String, val durationMs: Lon
     }
 }
 
+enum class KeyHighlightMode(val id: String, val label: String) {
+    OFF("off", "Off"),
+    STATIC("static", "Static"),
+    DYNAMIC("dynamic", "Dynamic"),
+    GRADIENT("gradient", "Gradient");
+
+    companion object {
+        fun fromId(id: String?): KeyHighlightMode =
+            entries.firstOrNull { it.id == id } ?: STATIC
+    }
+}
+
+enum class RgbGradientPreset(
+    val id: String,
+    val label: String,
+    val colorsArgb: List<Long>
+) {
+    CYBER_PRISM(
+        id = "cyber_prism",
+        label = "Cyber Prism",
+        colorsArgb = listOf(0xFF22D3EE, 0xFFA855F7, 0xFFF43F5E)
+    ),
+    AURORA(
+        id = "aurora",
+        label = "Aurora",
+        colorsArgb = listOf(0xFF10B981, 0xFF22D3EE, 0xFF3B82F6)
+    ),
+    SOLAR_FLARE(
+        id = "solar_flare",
+        label = "Solar Flare",
+        colorsArgb = listOf(0xFFF59E0B, 0xFFFB7185, 0xFFD946EF)
+    ),
+    NEON_PULSE(
+        id = "neon_pulse",
+        label = "Neon Pulse",
+        colorsArgb = listOf(0xFF84CC16, 0xFF06B6D4, 0xFFEC4899)
+    );
+
+    companion object {
+        fun fromId(id: String?): RgbGradientPreset =
+            entries.firstOrNull { it.id == id } ?: CYBER_PRISM
+    }
+}
+
+enum class EnterKeyBehavior(
+    val id: String,
+    val title: String,
+    val subtitle: String
+) {
+    PRESS_ENTER_HOLD_NEWLINE(
+        id = "press_enter_hold_newline",
+        title = "Tap: Enter  •  Hold: Newline",
+        subtitle = "Tap triggers smart block indent or IME action; hold inserts raw \\n"
+    ),
+    PRESS_NEWLINE_HOLD_ENTER(
+        id = "press_newline_hold_enter",
+        title = "Tap: Newline  •  Hold: Enter",
+        subtitle = "Tap inserts raw \\n; hold triggers smart block indent or IME action"
+    );
+
+    companion object {
+        fun fromId(id: String?): EnterKeyBehavior =
+            entries.firstOrNull { it.id == id } ?: PRESS_ENTER_HOLD_NEWLINE
+    }
+}
+
+data class ClipboardItem(
+    val id: String,
+    val text: String,
+    val timestampMs: Long,
+    val isPinned: Boolean = false
+)
+
 data class KeyboardPreferences(
     val syntaxLayout: SyntaxLayout = SyntaxLayout.KOTLIN_C,
     val autoCloseBrackets: Boolean = true,
@@ -23,5 +96,9 @@ data class KeyboardPreferences(
     val hapticStrength: HapticStrength = HapticStrength.CRISP,
     val showSyntaxStrip: Boolean = true,
     val showKeyHints: Boolean = true,
-    val darkMode: Boolean = true
+    val darkMode: Boolean = true,
+    val highlightMode: KeyHighlightMode = KeyHighlightMode.STATIC,
+    val staticHighlightColorArgb: Long = 0xFF22D3EE,
+    val gradientPreset: RgbGradientPreset = RgbGradientPreset.CYBER_PRISM,
+    val enterKeyBehavior: EnterKeyBehavior = EnterKeyBehavior.PRESS_ENTER_HOLD_NEWLINE
 )

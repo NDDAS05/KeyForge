@@ -5,10 +5,15 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.ClipboardItem
+import com.example.data.EnterKeyBehavior
 import com.example.data.HapticStrength
+import com.example.data.KeyHighlightMode
 import com.example.data.KeyboardPreferences
 import com.example.data.PreferencesRepository
+import com.example.data.RgbGradientPreset
 import com.example.engine.EditorTextEngine
+import com.example.engine.TextEditResult
 import com.example.ime.ImeSystemHelper
 import com.example.ime.ImeSystemStatus
 import com.example.model.SyntaxLayout
@@ -20,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 class KeyboardViewModel(application: Application) : AndroidViewModel(application), KeyboardActions {
 
@@ -28,6 +34,9 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
     private val _preferences = MutableStateFlow(KeyboardPreferences())
     val preferences: StateFlow<KeyboardPreferences> = _preferences.asStateFlow()
     private var hasLocalMutation = false
+
+    private val _clipboardItems = MutableStateFlow<List<ClipboardItem>>(emptyList())
+    val clipboardItems: StateFlow<List<ClipboardItem>> = _clipboardItems.asStateFlow()
 
     private val initialSnippet = SyntaxLayout.KOTLIN_C.starterSnippet
     private val _editorValue = MutableStateFlow(
@@ -55,6 +64,11 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
             val stored = repository.preferencesFlow.first()
             if (!hasLocalMutation) {
                 _preferences.value = stored
+            }
+        }
+        viewModelScope.launch {
+            repository.clipboardHistoryFlow.collect { storedClips ->
+                _clipboardItems.value = storedClips
             }
         }
     }
@@ -93,6 +107,28 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
             _editorValue.value = undoStack.removeLast()
             _canUndo.value = undoStack.isNotEmpty()
             showBadge("Undid last edit")
+        }
+    }
+
+    fun recordClipboardCopy(text: String, notifyBadge: Boolean = true) {
+        if (text.isBlank()) return
+        val existing = _clipboardItems.value.firstOrNull { it.text == text }
+        val updated = _clipboardItems.value.filterNot { it.text == text }.toMutableList()
+        updated.add(
+            0,
+            ClipboardItem(
+                id = existing?.id ?: UUID.randomUUID().toString(),
+                text = text,
+                timestampMs = System.currentTimeMillis(),
+                isPinned = existing?.isPinned ?: false
+            )
+        )
+        _clipboardItems.value = PreferencesRepository.sortAndTrimClipboard(updated)
+        viewModelScope.launch {
+            repository.addClipboardItem(text)
+        }
+        if (notifyBadge) {
+            showBadge("Copied to history")
         }
     }
 
@@ -164,6 +200,30 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch { repository.setDarkMode(dark) }
     }
 
+    fun setHighlightMode(mode: KeyHighlightMode) {
+        hasLocalMutation = true
+        _preferences.value = _preferences.value.copy(highlightMode = mode)
+        viewModelScope.launch { repository.setHighlightMode(mode) }
+    }
+
+    fun setStaticHighlightColor(argb: Long) {
+        hasLocalMutation = true
+        _preferences.value = _preferences.value.copy(staticHighlightColorArgb = argb)
+        viewModelScope.launch { repository.setStaticHighlightColor(argb) }
+    }
+
+    fun setGradientPreset(preset: RgbGradientPreset) {
+        hasLocalMutation = true
+        _preferences.value = _preferences.value.copy(gradientPreset = preset)
+        viewModelScope.launch { repository.setGradientPreset(preset) }
+    }
+
+    fun setEnterKeyBehavior(behavior: EnterKeyBehavior) {
+        hasLocalMutation = true
+        _preferences.value = _preferences.value.copy(enterKeyBehavior = behavior)
+        viewModelScope.launch { repository.setEnterKeyBehavior(behavior) }
+    }
+
     override fun onCommitToken(token: String) {
         val current = _editorValue.value
         val result = EditorTextEngine.insertToken(
@@ -171,7 +231,7 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
             selectionStart = current.selection.start,
             selectionEnd = current.selection.end,
             token = token,
-            prefs = preferences.value
+            prefs = _preferences.value
         )
         applyEditResult(current, result)
     }
@@ -182,7 +242,7 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
             text = current.text,
             selectionStart = current.selection.start,
             selectionEnd = current.selection.end,
-            prefs = preferences.value
+            prefs = _preferences.value
         )
         applyEditResult(current, result)
     }
@@ -193,7 +253,17 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
             text = current.text,
             selectionStart = current.selection.start,
             selectionEnd = current.selection.end,
-            prefs = preferences.value
+            prefs = _preferences.value
+        )
+        applyEditResult(current, result)
+    }
+
+    override fun onNewline() {
+        val current = _editorValue.value
+        val result = EditorTextEngine.newline(
+            text = current.text,
+            selectionStart = current.selection.start,
+            selectionEnd = current.selection.end
         )
         applyEditResult(current, result)
     }
@@ -208,7 +278,7 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
             text = current.text,
             selectionStart = current.selection.start,
             selectionEnd = current.selection.end,
-            prefs = preferences.value
+            prefs = _preferences.value
         )
         applyEditResult(current, result)
     }
@@ -238,23 +308,58 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
     }
 
     override fun onToggleSyntaxLayout() {
-        val next = preferences.value.syntaxLayout.next()
+        val next = _preferences.value.syntaxLayout.next()
         selectSyntaxLayout(next, loadSampleIfUntouched = true)
     }
 
     override fun onToggleAutoClose() {
-        val next = !preferences.value.autoCloseBrackets
+        val next = !_preferences.value.autoCloseBrackets
         setAutoCloseBrackets(next)
         showBadge(if (next) "Auto-close pairs ON" else "Auto-close pairs OFF")
     }
 
     override fun onToggleHaptics() {
-        val next = !preferences.value.hapticEnabled
+        val next = !_preferences.value.hapticEnabled
         setHapticEnabled(next)
         showBadge(if (next) "Haptic feedback ON" else "Haptic feedback OFF")
     }
 
-    private fun applyEditResult(previous: TextFieldValue, result: com.example.engine.TextEditResult) {
+    override fun onPasteClipboardItem(text: String) {
+        val current = _editorValue.value
+        val start = minOf(current.selection.start, current.selection.end).coerceIn(0, current.text.length)
+        val end = maxOf(current.selection.start, current.selection.end).coerceIn(0, current.text.length)
+        val newText = current.text.substring(0, start) + text + current.text.substring(end)
+        val cursor = start + text.length
+        applyEditResult(
+            previous = current,
+            result = TextEditResult(
+                text = newText,
+                selectionStart = cursor,
+                selectionEnd = cursor,
+                feedbackBadge = "Pasted snippet"
+            )
+        )
+    }
+
+    override fun onTogglePinClipboardItem(id: String) {
+        val updated = _clipboardItems.value.map { item ->
+            if (item.id == id) item.copy(isPinned = !item.isPinned) else item
+        }
+        _clipboardItems.value = PreferencesRepository.sortAndTrimClipboard(updated)
+        viewModelScope.launch { repository.togglePinClipboardItem(id) }
+    }
+
+    override fun onDeleteClipboardItem(id: String) {
+        _clipboardItems.value = _clipboardItems.value.filterNot { it.id == id }
+        viewModelScope.launch { repository.deleteClipboardItem(id) }
+    }
+
+    override fun onClearUnpinnedClipboard() {
+        _clipboardItems.value = _clipboardItems.value.filter { it.isPinned }
+        viewModelScope.launch { repository.clearClipboardHistory(keepPinned = true) }
+    }
+
+    private fun applyEditResult(previous: TextFieldValue, result: TextEditResult) {
         if (result.text != previous.text) {
             pushUndo(previous)
         }

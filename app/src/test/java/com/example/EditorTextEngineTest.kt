@@ -94,6 +94,13 @@ class EditorTextEngineTest {
     }
 
     @Test
+    fun `newline inserts raw line break without block expansion or indent`() {
+        val result = EditorTextEngine.newline("fun main() {}", 12, 12)
+        assertEquals("fun main() {\n}", result.text)
+        assertEquals(13, result.selectionStart)
+    }
+
+    @Test
     fun `python layout indents after colon on enter`() {
         val pyPrefs = defaultPrefs.copy(syntaxLayout = SyntaxLayout.PYTHON)
         val result = EditorTextEngine.enter("if ok:", 6, 6, pyPrefs)

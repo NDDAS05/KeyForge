@@ -1,10 +1,10 @@
 package com.example.ime
 
 import android.inputmethodservice.InputMethodService
-import android.provider.Settings
+import android.text.InputType
 import android.view.KeyEvent
 import android.view.View
-import android.view.inputmethod.InputConnection
+import android.view.inputmethod.EditorInfo
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -24,6 +24,8 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.data.ClipboardItem
+import com.example.data.ClipboardObserver
 import com.example.data.KeyboardPreferences
 import com.example.data.PreferencesRepository
 import com.example.engine.EditorTextEngine
@@ -52,7 +54,9 @@ class CodeKeyboardService :
 
     private lateinit var preferencesRepository: PreferencesRepository
     private lateinit var haptics: KeyboardHaptics
+    private lateinit var clipboardObserver: ClipboardObserver
     private val preferencesState = MutableStateFlow(KeyboardPreferences())
+    private val clipboardState = MutableStateFlow<List<ClipboardItem>>(emptyList())
 
     private val matchingPairs = setOf(
         "(" to ")",
@@ -76,10 +80,20 @@ class CodeKeyboardService :
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_CREATE)
         preferencesRepository = PreferencesRepository(applicationContext)
         haptics = KeyboardHaptics(applicationContext)
+        clipboardObserver = ClipboardObserver(applicationContext) { clipText ->
+            serviceScope.launch {
+                preferencesRepository.addClipboardItem(clipText)
+            }
+        }
 
         serviceScope.launch {
             preferencesRepository.preferencesFlow.collect { prefs ->
                 preferencesState.value = prefs
+            }
+        }
+        serviceScope.launch {
+            preferencesRepository.clipboardHistoryFlow.collect { items ->
+                clipboardState.value = items
             }
         }
     }
@@ -99,6 +113,7 @@ class CodeKeyboardService :
 
             setContent {
                 val prefs by preferencesState.collectAsState()
+                val clips by clipboardState.collectAsState()
                 KeyForgeTheme(darkTheme = prefs.darkMode) {
                     Box(
                         modifier = Modifier
@@ -107,6 +122,7 @@ class CodeKeyboardService :
                     ) {
                         CodeKeyboard(
                             preferences = prefs,
+                            clipboardItems = clips,
                             haptics = haptics,
                             actions = imeKeyboardActions
                         )
@@ -120,15 +136,23 @@ class CodeKeyboardService :
         super.onWindowShown()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_START)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_RESUME)
+        clipboardObserver.start()
+        clipboardObserver.readPrimaryClipText()?.let { clipText ->
+            if (clipText.isNotBlank()) {
+                serviceScope.launch { preferencesRepository.addClipboardItem(clipText) }
+            }
+        }
     }
 
     override fun onWindowHidden() {
+        clipboardObserver.stop()
         super.onWindowHidden()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE)
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_STOP)
     }
 
     override fun onDestroy() {
+        clipboardObserver.stop()
         lifecycleRegistry.handleLifecycleEvent(Lifecycle.Event.ON_DESTROY)
         store.clear()
         serviceScope.cancel()
@@ -155,7 +179,6 @@ class CodeKeyboardService :
                 return
             }
 
-            // Overtype / skip closing delimiter if cursor already sits right before it
             if (selected.isNullOrEmpty() &&
                 prefs.autoCloseBrackets &&
                 token in closingDelimiters &&
@@ -165,7 +188,6 @@ class CodeKeyboardService :
                 return
             }
 
-            // Auto-close pair and place cursor between delimiters
             if (closing != null) {
                 ic.beginBatchEdit()
                 ic.commitText(token, 1)
@@ -199,6 +221,21 @@ class CodeKeyboardService :
 
         override fun onEnter() {
             val ic = currentInputConnection ?: return
+            val editorInfo = currentInputEditorInfo
+            if (editorInfo != null) {
+                val action = editorInfo.imeOptions and EditorInfo.IME_MASK_ACTION
+                val noEnterAction = (editorInfo.imeOptions and EditorInfo.IME_FLAG_NO_ENTER_ACTION) != 0
+                val isMultiline = (editorInfo.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE) != 0
+                if (!noEnterAction &&
+                    !isMultiline &&
+                    action != EditorInfo.IME_ACTION_NONE &&
+                    action != EditorInfo.IME_ACTION_UNSPECIFIED
+                ) {
+                    ic.performEditorAction(action)
+                    return
+                }
+            }
+
             val prefs = preferencesState.value
             if (!prefs.smartIndentOnEnter) {
                 sendDownUpKeyEvents(KeyEvent.KEYCODE_ENTER)
@@ -233,6 +270,10 @@ class CodeKeyboardService :
             }
         }
 
+        override fun onNewline() {
+            currentInputConnection?.commitText("\n", 1)
+        }
+
         override fun onSpace() {
             currentInputConnection?.commitText(" ", 1)
         }
@@ -263,6 +304,22 @@ class CodeKeyboardService :
         override fun onToggleHaptics() {
             val next = !preferencesState.value.hapticEnabled
             serviceScope.launch { preferencesRepository.setHapticEnabled(next) }
+        }
+
+        override fun onPasteClipboardItem(text: String) {
+            currentInputConnection?.commitText(text, 1)
+        }
+
+        override fun onTogglePinClipboardItem(id: String) {
+            serviceScope.launch { preferencesRepository.togglePinClipboardItem(id) }
+        }
+
+        override fun onDeleteClipboardItem(id: String) {
+            serviceScope.launch { preferencesRepository.deleteClipboardItem(id) }
+        }
+
+        override fun onClearUnpinnedClipboard() {
+            serviceScope.launch { preferencesRepository.clearClipboardHistory(keepPinned = true) }
         }
     }
 }

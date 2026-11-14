@@ -211,7 +211,19 @@ object EditorTextEngine {
         val insertion = "\n$nextIndent"
         val newText = text.substring(0, start) + insertion + text.substring(end)
         val cursor = start + insertion.length
-        return TextEditResult(newText, cursor, cursor)
+        return TextEditResult(newText, cursor, cursor, feedbackBadge = "Enter")
+    }
+
+    fun newline(
+        text: String,
+        selectionStart: Int,
+        selectionEnd: Int
+    ): TextEditResult {
+        val start = minOf(selectionStart, selectionEnd).coerceIn(0, text.length)
+        val end = maxOf(selectionStart, selectionEnd).coerceIn(0, text.length)
+        val newText = text.substring(0, start) + "\n" + text.substring(end)
+        val cursor = start + 1
+        return TextEditResult(newText, cursor, cursor, feedbackBadge = "Newline (\\n)")
     }
 
     fun insertTab(
