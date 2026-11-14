@@ -51,12 +51,13 @@ fun ClipboardHistoryPanel(
     onDeleteItem: (ClipboardItem) -> Unit,
     onClearUnpinned: () -> Unit,
     onClose: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    panelHeight: androidx.compose.ui.unit.Dp = 250.dp
 ) {
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .height(250.dp)
+            .height(panelHeight)
             .testTag("clipboard_history_panel"),
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {

@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.content.res.Configuration
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +30,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -67,8 +70,16 @@ fun KeyboardWorkbenchScreen(
     val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
     val feedbackBadge by viewModel.pairFeedbackBadge.collectAsStateWithLifecycle()
     val imeStatus by viewModel.imeStatus.collectAsStateWithLifecycle()
+    val openSettingsRequested by viewModel.openSettingsRequested.collectAsStateWithLifecycle()
 
     var showSettings by remember { mutableStateOf(false) }
+
+    LaunchedEffect(openSettingsRequested) {
+        if (openSettingsRequested) {
+            showSettings = true
+            viewModel.consumeOpenSettingsRequest()
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -88,7 +99,7 @@ fun KeyboardWorkbenchScreen(
                     )
                 )
         ) {
-            val isExpandedWide = maxWidth >= 840.dp
+            val isExpandedWide = maxWidth >= 840.dp && maxHeight >= 480.dp
 
             Column(
                 modifier = Modifier
@@ -222,10 +233,11 @@ private fun WorkbenchTopBar(
     onOpenImeSetup: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 8.dp),
+            .padding(horizontal = 14.dp, vertical = if (isLandscape) 2.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {

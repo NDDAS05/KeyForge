@@ -134,4 +134,28 @@ class KeyboardUiRobolectricTest {
         composeTestRule.waitForIdle()
         composeTestRule.onNodeWithTag("editor_cursor_telemetry").assertTextContains("Ln 2, Col 5  •  8 ch", substring = true)
     }
+
+    @Test
+    fun `long pressing comma opens settings sheet while tapping inserts comma`() {
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("editor_clear_button").performClick()
+        composeTestRule.waitForIdle()
+
+        // Short tap inserts comma
+        composeTestRule.onNodeWithTag("key_comma").performClick()
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("editor_cursor_telemetry").assertTextContains("Ln 1, Col 2  •  1 ch", substring = true)
+
+        // Long press opens Settings sheet
+        composeTestRule.onNodeWithTag("key_comma").performTouchInput { longClick() }
+        composeTestRule.waitForIdle()
+        composeTestRule.onNodeWithTag("settings_rgb_mode_static").assertIsDisplayed()
+    }
+
+    @Test
+    fun `ime service disables fullscreen extract mode in landscape`() {
+        val service = org.robolectric.Robolectric.buildService(com.example.ime.CodeKeyboardService::class.java).get()
+        org.junit.Assert.assertFalse(service.onEvaluateFullscreenMode())
+    }
 }

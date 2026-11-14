@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,6 +41,7 @@ import androidx.compose.material.icons.rounded.Code
 import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.KeyboardCapslock
 import androidx.compose.material.icons.rounded.North
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SubdirectoryArrowLeft
 import androidx.compose.material.icons.rounded.Vibration
 import androidx.compose.material3.Icon
@@ -58,8 +61,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -68,6 +73,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
@@ -105,11 +111,97 @@ interface KeyboardActions {
     fun onToggleSyntaxLayout()
     fun onToggleAutoClose()
     fun onToggleHaptics()
+    fun onOpenSettings()
     fun onPasteClipboardItem(text: String)
     fun onTogglePinClipboardItem(id: String)
     fun onDeleteClipboardItem(id: String)
     fun onClearUnpinnedClipboard()
 }
+
+private data class KeyboardMetrics(
+    val isLandscape: Boolean,
+    val controlBarHeight: Dp,
+    val symbolRowHeight: Dp,
+    val syntaxStripHeight: Dp,
+    val mainKeyHeight: Dp,
+    val bottomRowHeight: Dp,
+    val verticalRowSpacing: Dp,
+    val horizontalKeyGap: Dp,
+    val outerHorizontalPadding: Dp,
+    val outerVerticalPadding: Dp,
+    val qwertyRow2HorizontalPadding: Dp,
+    val keyCornerRadius: Dp,
+    val controlCornerRadius: Dp,
+    val primaryFontSp: Int,
+    val symbolFontSp: Int,
+    val syntaxFontSp: Int,
+    val syntaxSmallFontSp: Int,
+    val spaceFontSp: Int,
+    val hintFontSp: Int,
+    val iconSize: Dp,
+    val repeatIconSize: Dp,
+    val controlIconSize: Dp,
+    val hintIconSize: Dp,
+    val clipboardPanelHeight: Dp
+)
+
+private fun keyboardMetricsFor(isLandscape: Boolean): KeyboardMetrics =
+    if (isLandscape) {
+        KeyboardMetrics(
+            isLandscape = true,
+            controlBarHeight = 30.dp,
+            symbolRowHeight = 28.dp,
+            syntaxStripHeight = 24.dp,
+            mainKeyHeight = 29.dp,
+            bottomRowHeight = 30.dp,
+            verticalRowSpacing = 2.dp,
+            horizontalKeyGap = 3.5.dp,
+            outerHorizontalPadding = 8.dp,
+            outerVerticalPadding = 2.dp,
+            qwertyRow2HorizontalPadding = 22.dp,
+            keyCornerRadius = 6.dp,
+            controlCornerRadius = 7.dp,
+            primaryFontSp = 14,
+            symbolFontSp = 14,
+            syntaxFontSp = 12,
+            syntaxSmallFontSp = 10,
+            spaceFontSp = 10,
+            hintFontSp = 9,
+            iconSize = 17.dp,
+            repeatIconSize = 18.dp,
+            controlIconSize = 15.dp,
+            hintIconSize = 9.dp,
+            clipboardPanelHeight = 172.dp
+        )
+    } else {
+        // Portrait dimensions kept completely untouched
+        KeyboardMetrics(
+            isLandscape = false,
+            controlBarHeight = 42.dp,
+            symbolRowHeight = 44.dp,
+            syntaxStripHeight = 36.dp,
+            mainKeyHeight = 46.dp,
+            bottomRowHeight = 46.dp,
+            verticalRowSpacing = 5.dp,
+            horizontalKeyGap = 3.dp,
+            outerHorizontalPadding = 4.dp,
+            outerVerticalPadding = 6.dp,
+            qwertyRow2HorizontalPadding = 14.dp,
+            keyCornerRadius = 8.dp,
+            controlCornerRadius = 10.dp,
+            primaryFontSp = 16,
+            symbolFontSp = 16,
+            syntaxFontSp = 13,
+            syntaxSmallFontSp = 11,
+            spaceFontSp = 11,
+            hintFontSp = 9,
+            iconSize = 20.dp,
+            repeatIconSize = 21.dp,
+            controlIconSize = 17.dp,
+            hintIconSize = 10.dp,
+            clipboardPanelHeight = 250.dp
+        )
+    }
 
 private val QWERTY_ROW_1 = listOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p")
 private val QWERTY_ROW_2 = listOf("a", "s", "d", "f", "g", "h", "j", "k", "l")
@@ -128,6 +220,10 @@ fun CodeKeyboard(
     modifier: Modifier = Modifier
 ) {
     val view = LocalView.current
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val metrics = remember(isLandscape) { keyboardMetricsFor(isLandscape) }
+
     var shiftState by remember { mutableStateOf(ShiftState.OFF) }
     var keyLayer by remember { mutableStateOf(KeyLayer.QWERTY) }
     var showClipboardPanel by remember { mutableStateOf(false) }
@@ -144,12 +240,16 @@ fun CodeKeyboard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
+                .padding(
+                    horizontal = metrics.outerHorizontalPadding,
+                    vertical = metrics.outerVerticalPadding
+                ),
+            verticalArrangement = Arrangement.spacedBy(metrics.verticalRowSpacing)
         ) {
             // Top Utility Bar: Compact Syntax Toggle, Clipboard History, Auto-Pair, Haptics, Tab, Left/Right Cursor
             KeyboardControlStrip(
                 preferences = preferences,
+                metrics = metrics,
                 clipboardOpen = showClipboardPanel,
                 clipboardCount = clipboardItems.size,
                 rgbController = rgbController,
@@ -186,6 +286,7 @@ fun CodeKeyboard(
             if (showClipboardPanel) {
                 ClipboardHistoryPanel(
                     items = clipboardItems,
+                    panelHeight = metrics.clipboardPanelHeight,
                     onPasteItem = { item ->
                         haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.SYMBOL_TAP)
                         actions.onPasteClipboardItem(item.text)
@@ -214,7 +315,7 @@ fun CodeKeyboard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("dedicated_symbol_row"),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                 ) {
                     SyntaxLayout.PRIORITY_TOP_SYMBOLS.forEach { symbol ->
                         val isBracketOpener = symbol in setOf("(", "[", "{", "<")
@@ -228,13 +329,16 @@ fun CodeKeyboard(
                             label = symbol,
                             preferences = preferences,
                             rgbController = rgbController,
+                            cornerRadius = metrics.keyCornerRadius,
+                            hintFontSp = metrics.hintFontSp,
+                            hintIconSize = metrics.hintIconSize,
                             modifier = Modifier
                                 .weight(1f)
-                                .height(44.dp)
+                                .height(metrics.symbolRowHeight)
                                 .testTag("symbol_key_${symbolTagName(symbol)}"),
                             labelColor = labelColor,
                             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            fontSizeSp = 16,
+                            fontSizeSp = metrics.symbolFontSp,
                             onTap = {
                                 val eventType = if (isBracketOpener && preferences.autoCloseBrackets) {
                                     HapticEventType.AUTO_PAIR
@@ -262,7 +366,7 @@ fun CodeKeyboard(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("syntax_specific_row"),
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                         ) {
                             layout.syntaxStripKeys.forEach { spec ->
                                 val isQuote = spec.token in setOf("\"", "'", "`", "f\"\"")
@@ -270,9 +374,12 @@ fun CodeKeyboard(
                                     label = spec.token,
                                     preferences = preferences,
                                     rgbController = rgbController,
+                                    cornerRadius = metrics.keyCornerRadius,
+                                    hintFontSp = metrics.hintFontSp,
+                                    hintIconSize = metrics.hintIconSize,
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(36.dp)
+                                        .height(metrics.syntaxStripHeight)
                                         .testTag("syntax_key_${spec.token}"),
                                     labelColor = if (isQuote) {
                                         MaterialTheme.colorScheme.tertiary
@@ -280,7 +387,11 @@ fun CodeKeyboard(
                                         MaterialTheme.colorScheme.secondary
                                     },
                                     containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                    fontSizeSp = if (spec.token.length >= 3) 11 else 13,
+                                    fontSizeSp = if (spec.token.length >= 3) {
+                                        metrics.syntaxSmallFontSp
+                                    } else {
+                                        metrics.syntaxFontSp
+                                    },
                                     onTap = {
                                         haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.SYMBOL_TAP)
                                         actions.onCommitToken(spec.token)
@@ -295,7 +406,7 @@ fun CodeKeyboard(
                     // QWERTY Row 1
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                     ) {
                         QWERTY_ROW_1.forEach { ch ->
                             val display = if (shiftState != ShiftState.OFF) ch.uppercase() else ch
@@ -305,9 +416,13 @@ fun CodeKeyboard(
                                 secondaryHint = hint,
                                 preferences = preferences,
                                 rgbController = rgbController,
+                                cornerRadius = metrics.keyCornerRadius,
+                                fontSizeSp = metrics.primaryFontSp,
+                                hintFontSp = metrics.hintFontSp,
+                                hintIconSize = metrics.hintIconSize,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(metrics.mainKeyHeight)
                                     .testTag("key_$ch"),
                                 onTap = {
                                     haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
@@ -328,8 +443,8 @@ fun CodeKeyboard(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            .padding(horizontal = metrics.qwertyRow2HorizontalPadding),
+                        horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                     ) {
                         QWERTY_ROW_2.forEach { ch ->
                             val display = if (shiftState != ShiftState.OFF) ch.uppercase() else ch
@@ -339,9 +454,13 @@ fun CodeKeyboard(
                                 secondaryHint = hint,
                                 preferences = preferences,
                                 rgbController = rgbController,
+                                cornerRadius = metrics.keyCornerRadius,
+                                fontSizeSp = metrics.primaryFontSp,
+                                hintFontSp = metrics.hintFontSp,
+                                hintIconSize = metrics.hintIconSize,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(metrics.mainKeyHeight)
                                     .testTag("key_$ch"),
                                 onTap = {
                                     haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
@@ -361,7 +480,7 @@ fun CodeKeyboard(
                     // QWERTY Row 3: Shift + Z..M + Backspace
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                     ) {
                         val shiftActive = shiftState != ShiftState.OFF
                         val shiftBg by animateColorAsState(
@@ -389,9 +508,11 @@ fun CodeKeyboard(
                             iconTint = shiftFg,
                             preferences = preferences,
                             rgbController = rgbController,
+                            cornerRadius = metrics.keyCornerRadius,
+                            iconSize = metrics.iconSize,
                             modifier = Modifier
                                 .weight(1.45f)
-                                .height(46.dp)
+                                .height(metrics.mainKeyHeight)
                                 .testTag("key_shift"),
                             onTap = {
                                 haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.MODIFIER_TAP)
@@ -418,9 +539,13 @@ fun CodeKeyboard(
                                 secondaryHint = hint,
                                 preferences = preferences,
                                 rgbController = rgbController,
+                                cornerRadius = metrics.keyCornerRadius,
+                                fontSizeSp = metrics.primaryFontSp,
+                                hintFontSp = metrics.hintFontSp,
+                                hintIconSize = metrics.hintIconSize,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(metrics.mainKeyHeight)
                                     .testTag("key_$ch"),
                                 onTap = {
                                     haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
@@ -443,9 +568,11 @@ fun CodeKeyboard(
                             iconTint = MaterialTheme.colorScheme.onSurface,
                             preferences = preferences,
                             rgbController = rgbController,
+                            cornerRadius = metrics.keyCornerRadius,
+                            iconSize = metrics.repeatIconSize,
                             modifier = Modifier
                                 .weight(1.45f)
-                                .height(46.dp)
+                                .height(metrics.mainKeyHeight)
                                 .testTag("key_backspace"),
                             onTrigger = {
                                 haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
@@ -457,16 +584,20 @@ fun CodeKeyboard(
                     // 123 / Extended Symbols Layer
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                     ) {
                         NUM_ROW_1.forEach { digit ->
                             KeyCapButton(
                                 label = digit,
                                 preferences = preferences,
                                 rgbController = rgbController,
+                                cornerRadius = metrics.keyCornerRadius,
+                                fontSizeSp = metrics.primaryFontSp,
+                                hintFontSp = metrics.hintFontSp,
+                                hintIconSize = metrics.hintIconSize,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(metrics.mainKeyHeight)
                                     .testTag("key_num_$digit"),
                                 onTap = {
                                     haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
@@ -478,17 +609,21 @@ fun CodeKeyboard(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                     ) {
                         NUM_ROW_2.forEach { sym ->
                             KeyCapButton(
                                 label = sym,
                                 preferences = preferences,
                                 rgbController = rgbController,
+                                cornerRadius = metrics.keyCornerRadius,
+                                fontSizeSp = metrics.primaryFontSp,
+                                hintFontSp = metrics.hintFontSp,
+                                hintIconSize = metrics.hintIconSize,
                                 labelColor = MaterialTheme.colorScheme.secondary,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(metrics.mainKeyHeight)
                                     .testTag("key_sym_$sym"),
                                 onTap = {
                                     haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.SYMBOL_TAP)
@@ -500,17 +635,21 @@ fun CodeKeyboard(
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                     ) {
                         NUM_ROW_3.forEach { sym ->
                             KeyCapButton(
                                 label = sym,
                                 preferences = preferences,
                                 rgbController = rgbController,
+                                cornerRadius = metrics.keyCornerRadius,
+                                fontSizeSp = metrics.primaryFontSp,
+                                hintFontSp = metrics.hintFontSp,
+                                hintIconSize = metrics.hintIconSize,
                                 labelColor = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .height(46.dp)
+                                    .height(metrics.mainKeyHeight)
                                     .testTag("key_sym_$sym"),
                                 onTap = {
                                     haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.SYMBOL_TAP)
@@ -526,9 +665,11 @@ fun CodeKeyboard(
                             iconTint = MaterialTheme.colorScheme.onSurface,
                             preferences = preferences,
                             rgbController = rgbController,
+                            cornerRadius = metrics.keyCornerRadius,
+                            iconSize = metrics.repeatIconSize,
                             modifier = Modifier
                                 .weight(1.3f)
-                                .height(46.dp)
+                                .height(metrics.mainKeyHeight)
                                 .testTag("key_backspace"),
                             onTrigger = {
                                 haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
@@ -538,22 +679,25 @@ fun CodeKeyboard(
                     }
                 }
 
-                // Bottom Action Row: 123/ABC, Comma, Spacebar, Period, Enter/Newline
+                // Bottom Action Row: 123/ABC, Comma (long-press Settings), Spacebar, Period, Enter/Newline
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                    horizontalArrangement = Arrangement.spacedBy(metrics.horizontalKeyGap)
                 ) {
                     KeyCapButton(
                         label = if (keyLayer == KeyLayer.QWERTY) "123" else "ABC",
                         preferences = preferences,
                         rgbController = rgbController,
+                        cornerRadius = metrics.keyCornerRadius,
+                        hintFontSp = metrics.hintFontSp,
+                        hintIconSize = metrics.hintIconSize,
                         modifier = Modifier
                             .weight(1.4f)
-                            .height(46.dp)
+                            .height(metrics.bottomRowHeight)
                             .testTag("layer_toggle_button"),
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         labelColor = MaterialTheme.colorScheme.onSurface,
-                        fontSizeSp = 13,
+                        fontSizeSp = if (metrics.isLandscape) 12 else 13,
                         onTap = {
                             haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.MODIFIER_TAP)
                             keyLayer = if (keyLayer == KeyLayer.QWERTY) KeyLayer.SYMBOLS_NUMBERS else KeyLayer.QWERTY
@@ -562,16 +706,26 @@ fun CodeKeyboard(
 
                     KeyCapButton(
                         label = ",",
+                        secondaryHintIcon = Icons.Rounded.Settings,
                         preferences = preferences,
                         rgbController = rgbController,
+                        cornerRadius = metrics.keyCornerRadius,
+                        fontSizeSp = metrics.primaryFontSp,
+                        hintFontSp = metrics.hintFontSp,
+                        hintIconSize = metrics.hintIconSize,
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp)
+                            .height(metrics.bottomRowHeight)
                             .testTag("key_comma"),
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        longPressDelayMs = 400L,
                         onTap = {
                             haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
                             actions.onCommitToken(",")
+                        },
+                        onLongPress = {
+                            haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.MODIFIER_TAP)
+                            actions.onOpenSettings()
                         }
                     )
 
@@ -579,12 +733,15 @@ fun CodeKeyboard(
                         label = activeLayout.spaceLabel,
                         preferences = preferences,
                         rgbController = rgbController,
+                        cornerRadius = metrics.keyCornerRadius,
+                        hintFontSp = metrics.hintFontSp,
+                        hintIconSize = metrics.hintIconSize,
                         modifier = Modifier
                             .weight(4.2f)
-                            .height(46.dp)
+                            .height(metrics.bottomRowHeight)
                             .testTag("key_space"),
                         labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSizeSp = 11,
+                        fontSizeSp = metrics.spaceFontSp,
                         onTap = {
                             haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.KEY_TAP)
                             actions.onSpace()
@@ -595,9 +752,13 @@ fun CodeKeyboard(
                         label = ".",
                         preferences = preferences,
                         rgbController = rgbController,
+                        cornerRadius = metrics.keyCornerRadius,
+                        fontSizeSp = metrics.primaryFontSp,
+                        hintFontSp = metrics.hintFontSp,
+                        hintIconSize = metrics.hintIconSize,
                         modifier = Modifier
                             .weight(1f)
-                            .height(46.dp)
+                            .height(metrics.bottomRowHeight)
                             .testTag("key_period"),
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                         onTap = {
@@ -619,9 +780,11 @@ fun CodeKeyboard(
                         iconTint = MaterialTheme.colorScheme.onPrimary,
                         preferences = preferences,
                         rgbController = rgbController,
+                        cornerRadius = metrics.keyCornerRadius,
+                        iconSize = metrics.iconSize,
                         modifier = Modifier
                             .weight(1.6f)
-                            .height(46.dp)
+                            .height(metrics.bottomRowHeight)
                             .testTag("key_enter"),
                         onTap = {
                             haptics.trigger(view, preferences.hapticEnabled, preferences.hapticStrength, HapticEventType.MODIFIER_TAP)
@@ -641,6 +804,7 @@ fun CodeKeyboard(
 @Composable
 private fun KeyboardControlStrip(
     preferences: KeyboardPreferences,
+    metrics: KeyboardMetrics,
     clipboardOpen: Boolean,
     clipboardCount: Int,
     rgbController: RgbHighlightController,
@@ -657,28 +821,52 @@ private fun KeyboardControlStrip(
     val autoCloseDesc = stringResource(R.string.cd_autoclose_toggle)
     val hapticDesc = stringResource(R.string.cd_haptic_toggle)
 
+    val pairBg by animateColorAsState(
+        targetValue = if (preferences.autoCloseBrackets) {
+            MaterialTheme.colorScheme.tertiaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainer
+        },
+        label = "autoclose_bg"
+    )
+    val pairFg = if (preferences.autoCloseBrackets) {
+        MaterialTheme.colorScheme.tertiary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val hapticColor = if (preferences.hapticEnabled) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+    }
+
+    val controlShape = RoundedCornerShape(metrics.controlCornerRadius)
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 2.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
+            .padding(horizontal = if (metrics.isLandscape) 0.dp else 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(if (metrics.isLandscape) 6.dp else 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Reduced-width Syntax Layout Toggle Chip
+        // Syntax Layout Toggle Chip — compact fixed/capped width in landscape so it never stretches
         Surface(
-            modifier = Modifier
-                .weight(1.1f)
-                .height(42.dp)
-                .clip(RoundedCornerShape(10.dp))
+            modifier = (if (metrics.isLandscape) {
+                Modifier.widthIn(min = 74.dp, max = 96.dp)
+            } else {
+                Modifier.weight(1.1f)
+            })
+                .height(metrics.controlBarHeight)
+                .clip(controlShape)
                 .clickable(role = Role.Button, onClick = onToggleSyntax)
                 .semantics { contentDescription = syntaxBadgeDesc }
                 .testTag("syntax_layout_toggle"),
-            shape = RoundedCornerShape(10.dp),
+            shape = controlShape,
             color = MaterialTheme.colorScheme.secondaryContainer,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.45f))
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 6.dp),
+                modifier = Modifier.padding(horizontal = if (metrics.isLandscape) 10.dp else 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -686,9 +874,9 @@ private fun KeyboardControlStrip(
                     imageVector = Icons.Rounded.Code,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(if (metrics.isLandscape) 14.dp else 14.dp)
                 )
-                Spacer(Modifier.width(3.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(
                     text = preferences.syntaxLayout.shortLabel.replace(" ", ""),
                     style = MaterialTheme.typography.labelSmall,
@@ -703,13 +891,13 @@ private fun KeyboardControlStrip(
         // Dedicated Clipboard History Button
         Surface(
             modifier = Modifier
-                .width(42.dp)
-                .height(42.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .width(if (metrics.isLandscape) 44.dp else 42.dp)
+                .height(metrics.controlBarHeight)
+                .clip(controlShape)
                 .clickable(role = Role.Button, onClick = onToggleClipboard)
                 .semantics { contentDescription = clipboardDesc }
                 .testTag("clipboard_history_button"),
-            shape = RoundedCornerShape(10.dp),
+            shape = controlShape,
             color = if (clipboardOpen) {
                 MaterialTheme.colorScheme.primaryContainer
             } else {
@@ -733,14 +921,17 @@ private fun KeyboardControlStrip(
                     } else {
                         MaterialTheme.colorScheme.onSurface
                     },
-                    modifier = Modifier.size(17.dp)
+                    modifier = Modifier.size(metrics.controlIconSize)
                 )
                 if (clipboardCount > 0 && !clipboardOpen) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(top = 6.dp, end = 6.dp)
-                            .size(6.dp)
+                            .padding(
+                                top = if (metrics.isLandscape) 4.dp else 6.dp,
+                                end = if (metrics.isLandscape) 5.dp else 6.dp
+                            )
+                            .size(5.dp)
                             .clip(CircleShape)
                             .background(MaterialTheme.colorScheme.primary)
                     )
@@ -748,29 +939,19 @@ private fun KeyboardControlStrip(
             }
         }
 
-        // Auto-Close Pair Toggle Chip
-        val pairBg by animateColorAsState(
-            targetValue = if (preferences.autoCloseBrackets) {
-                MaterialTheme.colorScheme.tertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainer
-            },
-            label = "autoclose_bg"
-        )
-        val pairFg = if (preferences.autoCloseBrackets) {
-            MaterialTheme.colorScheme.tertiary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        }
+        // Auto-Close Pair Toggle Chip — compact balanced width in landscape
         Surface(
-            modifier = Modifier
-                .weight(0.95f)
-                .height(42.dp)
-                .clip(RoundedCornerShape(10.dp))
+            modifier = (if (metrics.isLandscape) {
+                Modifier.widthIn(min = 66.dp, max = 86.dp)
+            } else {
+                Modifier.weight(0.95f)
+            })
+                .height(metrics.controlBarHeight)
+                .clip(controlShape)
                 .clickable(role = Role.Button, onClick = onToggleAutoClose)
                 .semantics { contentDescription = autoCloseDesc }
                 .testTag("auto_close_toggle"),
-            shape = RoundedCornerShape(10.dp),
+            shape = controlShape,
             color = pairBg,
             border = BorderStroke(
                 1.dp,
@@ -778,7 +959,7 @@ private fun KeyboardControlStrip(
             )
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 5.dp),
+                modifier = Modifier.padding(horizontal = if (metrics.isLandscape) 10.dp else 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
@@ -788,12 +969,12 @@ private fun KeyboardControlStrip(
                         .clip(CircleShape)
                         .background(pairFg)
                 )
-                Spacer(Modifier.width(3.dp))
+                Spacer(Modifier.width(4.dp))
                 Text(
                     text = "{|}",
                     fontFamily = JetBrainsMonoFontFamily,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    fontSize = if (metrics.isLandscape) 11.sp else 11.sp,
                     color = pairFg,
                     maxLines = 1
                 )
@@ -801,20 +982,15 @@ private fun KeyboardControlStrip(
         }
 
         // Haptic Toggle Chip
-        val hapticColor = if (preferences.hapticEnabled) {
-            MaterialTheme.colorScheme.primary
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-        }
         Surface(
             modifier = Modifier
-                .width(40.dp)
-                .height(42.dp)
-                .clip(RoundedCornerShape(10.dp))
+                .width(if (metrics.isLandscape) 44.dp else 40.dp)
+                .height(metrics.controlBarHeight)
+                .clip(controlShape)
                 .clickable(role = Role.Button, onClick = onToggleHaptics)
                 .semantics { contentDescription = hapticDesc }
                 .testTag("haptic_toggle"),
-            shape = RoundedCornerShape(10.dp),
+            shape = controlShape,
             color = if (preferences.hapticEnabled) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
             } else {
@@ -830,9 +1006,14 @@ private fun KeyboardControlStrip(
                     imageVector = Icons.Rounded.Vibration,
                     contentDescription = null,
                     tint = hapticColor,
-                    modifier = Modifier.size(17.dp)
+                    modifier = Modifier.size(metrics.controlIconSize)
                 )
             }
+        }
+
+        // In landscape, bridge left mode pills and right cursor/tab controls cleanly without stretching pills
+        if (metrics.isLandscape) {
+            Spacer(modifier = Modifier.weight(1f))
         }
 
         // Tab Indent Key
@@ -843,9 +1024,11 @@ private fun KeyboardControlStrip(
             iconTint = MaterialTheme.colorScheme.onSurface,
             preferences = preferences,
             rgbController = rgbController,
+            cornerRadius = metrics.controlCornerRadius,
+            iconSize = metrics.controlIconSize,
             modifier = Modifier
-                .width(40.dp)
-                .height(42.dp)
+                .width(if (metrics.isLandscape) 52.dp else 40.dp)
+                .height(metrics.controlBarHeight)
                 .testTag("key_tab"),
             onTap = onTab
         )
@@ -858,9 +1041,11 @@ private fun KeyboardControlStrip(
             iconTint = MaterialTheme.colorScheme.primary,
             preferences = preferences,
             rgbController = rgbController,
+            cornerRadius = metrics.controlCornerRadius,
+            iconSize = metrics.repeatIconSize,
             modifier = Modifier
-                .width(44.dp)
-                .height(42.dp)
+                .width(if (metrics.isLandscape) 56.dp else 44.dp)
+                .height(metrics.controlBarHeight)
                 .testTag("cursor_left_button"),
             onTrigger = onCursorLeft
         )
@@ -873,9 +1058,11 @@ private fun KeyboardControlStrip(
             iconTint = MaterialTheme.colorScheme.primary,
             preferences = preferences,
             rgbController = rgbController,
+            cornerRadius = metrics.controlCornerRadius,
+            iconSize = metrics.repeatIconSize,
             modifier = Modifier
-                .width(44.dp)
-                .height(42.dp)
+                .width(if (metrics.isLandscape) 56.dp else 44.dp)
+                .height(metrics.controlBarHeight)
                 .testTag("cursor_right_button"),
             onTrigger = onCursorRight
         )
@@ -889,9 +1076,14 @@ fun KeyCapButton(
     rgbController: RgbHighlightController,
     modifier: Modifier = Modifier,
     secondaryHint: String? = null,
+    secondaryHintIcon: ImageVector? = null,
     containerColor: Color = MaterialTheme.colorScheme.surfaceContainer,
     labelColor: Color = MaterialTheme.colorScheme.onSurface,
     fontSizeSp: Int = 16,
+    hintFontSp: Int = 9,
+    hintIconSize: Dp = 10.dp,
+    cornerRadius: Dp = 8.dp,
+    longPressDelayMs: Long = 340L,
     onTap: () -> Unit,
     onLongPress: (() -> Unit)? = null
 ) {
@@ -917,7 +1109,7 @@ fun KeyCapButton(
         intensity = glowProgress.value
     )
 
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(cornerRadius)
 
     Box(
         modifier = modifier
@@ -936,11 +1128,11 @@ fun KeyCapButton(
                 brush = if (glowProgress.value > 0.05f) {
                     rgbAppearance.borderBrush
                 } else {
-                    androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                    SolidColor(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
                 },
                 shape = shape
             )
-            .pointerInput(preferences.highlightMode) {
+            .pointerInput(preferences.highlightMode, longPressDelayMs) {
                 awaitEachGesture {
                     awaitFirstDown(requireUnconsumed = false)
                     isPressed = true
@@ -951,7 +1143,7 @@ fun KeyCapButton(
                     var longPressed = false
                     val longPressJob = if (currentOnLongPress != null) {
                         scope.launch {
-                            delay(340L)
+                            delay(longPressDelayMs)
                             longPressed = true
                             currentOnLongPress?.invoke()
                         }
@@ -973,12 +1165,22 @@ fun KeyCapButton(
             Text(
                 text = secondaryHint,
                 fontFamily = JetBrainsMonoFontFamily,
-                fontSize = 9.sp,
-                lineHeight = 9.sp,
+                fontSize = hintFontSp.sp,
+                lineHeight = hintFontSp.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 2.dp, end = 4.dp)
+            )
+        } else if (secondaryHintIcon != null) {
+            Icon(
+                imageVector = secondaryHintIcon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 2.dp, end = 3.dp)
+                    .size(hintIconSize)
             )
         }
         Text(
@@ -1008,6 +1210,8 @@ private fun ActionIconKeyCap(
     preferences: KeyboardPreferences,
     rgbController: RgbHighlightController,
     modifier: Modifier = Modifier,
+    cornerRadius: Dp = 8.dp,
+    iconSize: Dp = 20.dp,
     subHint: String? = null,
     onTap: () -> Unit,
     onLongPress: (() -> Unit)? = null
@@ -1033,7 +1237,7 @@ private fun ActionIconKeyCap(
         defaultBorder = MaterialTheme.colorScheme.primary,
         intensity = glowProgress.value
     )
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(cornerRadius)
 
     Box(
         modifier = modifier
@@ -1052,7 +1256,7 @@ private fun ActionIconKeyCap(
                 brush = if (glowProgress.value > 0.05f) {
                     rgbAppearance.borderBrush
                 } else {
-                    androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                    SolidColor(MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
                 },
                 shape = shape
             )
@@ -1095,14 +1299,14 @@ private fun ActionIconKeyCap(
                 color = iconTint.copy(alpha = 0.8f),
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(top = 3.dp, end = 4.dp)
+                    .padding(top = 2.dp, end = 4.dp)
             )
         }
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }
@@ -1116,6 +1320,8 @@ private fun RepeatableIconKeyCap(
     preferences: KeyboardPreferences,
     rgbController: RgbHighlightController,
     modifier: Modifier = Modifier,
+    cornerRadius: Dp = 8.dp,
+    iconSize: Dp = 21.dp,
     onTrigger: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
@@ -1138,7 +1344,7 @@ private fun RepeatableIconKeyCap(
         defaultBorder = MaterialTheme.colorScheme.primary,
         intensity = glowProgress.value
     )
-    val shape = RoundedCornerShape(8.dp)
+    val shape = RoundedCornerShape(cornerRadius)
 
     Box(
         modifier = modifier
@@ -1157,7 +1363,7 @@ private fun RepeatableIconKeyCap(
                 brush = if (glowProgress.value > 0.05f) {
                     rgbAppearance.borderBrush
                 } else {
-                    androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
+                    SolidColor(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f))
                 },
                 shape = shape
             )
@@ -1199,7 +1405,7 @@ private fun RepeatableIconKeyCap(
             } else {
                 iconTint
             },
-            modifier = Modifier.size(21.dp)
+            modifier = Modifier.size(iconSize)
         )
     }
 }

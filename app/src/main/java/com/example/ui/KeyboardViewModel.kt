@@ -57,6 +57,9 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
     private val _imeStatus = MutableStateFlow(ImeSystemHelper.getStatus(application))
     val imeStatus: StateFlow<ImeSystemStatus> = _imeStatus.asStateFlow()
 
+    private val _openSettingsRequested = MutableStateFlow(false)
+    val openSettingsRequested: StateFlow<Boolean> = _openSettingsRequested.asStateFlow()
+
     private var badgeJob: Job? = null
 
     init {
@@ -322,6 +325,18 @@ class KeyboardViewModel(application: Application) : AndroidViewModel(application
         val next = !_preferences.value.hapticEnabled
         setHapticEnabled(next)
         showBadge(if (next) "Haptic feedback ON" else "Haptic feedback OFF")
+    }
+
+    override fun onOpenSettings() {
+        _openSettingsRequested.value = true
+    }
+
+    fun requestOpenSettings() {
+        _openSettingsRequested.value = true
+    }
+
+    fun consumeOpenSettingsRequest() {
+        _openSettingsRequested.value = false
     }
 
     override fun onPasteClipboardItem(text: String) {

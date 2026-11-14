@@ -1,5 +1,6 @@
 package com.example.ui.components
 
+import android.content.res.Configuration
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -41,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalTextInputService
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.AnnotatedString
@@ -73,6 +75,7 @@ fun CodeSandboxEditor(
 ) {
     @Suppress("DEPRECATION")
     val clipboardManager = LocalClipboardManager.current
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val verticalScroll = rememberScrollState()
     val horizontalScroll = rememberScrollState()
 
@@ -120,7 +123,7 @@ fun CodeSandboxEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp, vertical = if (isLandscape) 2.dp else 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -247,7 +250,7 @@ fun CodeSandboxEditor(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .padding(horizontal = 8.dp, vertical = if (isLandscape) 3.dp else 6.dp)
                     .verticalScroll(verticalScroll)
             ) {
                 Row(modifier = Modifier.fillMaxWidth()) {
@@ -315,7 +318,7 @@ fun CodeSandboxEditor(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(MaterialTheme.colorScheme.surfaceContainerLow)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .padding(horizontal = 12.dp, vertical = if (isLandscape) 3.dp else 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {

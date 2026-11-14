@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -23,12 +24,19 @@ class MainActivity : ComponentActivity() {
         clipboardObserver = ClipboardObserver(applicationContext) { copiedText ->
             viewModel.recordClipboardCopy(copiedText, notifyBadge = false)
         }
+        handleOpenSettingsIntent(intent)
         setContent {
             val prefs by viewModel.preferences.collectAsStateWithLifecycle()
             KeyForgeTheme(darkTheme = prefs.darkMode) {
                 KeyboardWorkbenchScreen(viewModel = viewModel)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenSettingsIntent(intent)
     }
 
     override fun onStart() {
@@ -49,5 +57,16 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         clipboardObserver.stop()
         super.onStop()
+    }
+
+    private fun handleOpenSettingsIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_OPEN_SETTINGS, false) == true) {
+            viewModel.requestOpenSettings()
+            intent.removeExtra(EXTRA_OPEN_SETTINGS)
+        }
+    }
+
+    companion object {
+        const val EXTRA_OPEN_SETTINGS = "com.example.EXTRA_OPEN_SETTINGS"
     }
 }

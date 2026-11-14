@@ -1,5 +1,6 @@
 package com.example.ime
 
+import android.content.Intent
 import android.inputmethodservice.InputMethodService
 import android.text.InputType
 import android.view.KeyEvent
@@ -24,6 +25,7 @@ import androidx.savedstate.SavedStateRegistry
 import androidx.savedstate.SavedStateRegistryController
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.example.MainActivity
 import com.example.data.ClipboardItem
 import com.example.data.ClipboardObserver
 import com.example.data.KeyboardPreferences
@@ -142,6 +144,10 @@ class CodeKeyboardService :
                 serviceScope.launch { preferencesRepository.addClipboardItem(clipText) }
             }
         }
+    }
+
+    override fun onEvaluateFullscreenMode(): Boolean {
+        return false
     }
 
     override fun onWindowHidden() {
@@ -304,6 +310,18 @@ class CodeKeyboardService :
         override fun onToggleHaptics() {
             val next = !preferencesState.value.hapticEnabled
             serviceScope.launch { preferencesRepository.setHapticEnabled(next) }
+        }
+
+        override fun onOpenSettings() {
+            val intent = Intent(this@CodeKeyboardService, MainActivity::class.java).apply {
+                addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK or
+                        Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        Intent.FLAG_ACTIVITY_CLEAR_TOP
+                )
+                putExtra(MainActivity.EXTRA_OPEN_SETTINGS, true)
+            }
+            startActivity(intent)
         }
 
         override fun onPasteClipboardItem(text: String) {
